@@ -1,0 +1,135 @@
+---
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+import Site from '../layouts/Site.astro';
+import { links, localized } from '../copy/links';
+import type { Copy } from '../copy/types';
+
+interface Props {
+  copy: Copy;
+}
+
+const { copy } = Astro.props;
+const d = copy.downloads;
+const l = copy.locale;
+
+// Archive naming follows scripts/asf-source-release.mjs; <version> is the
+// release version, for example 0.1.0.
+const archive = 'apache-maka-<version>-incubating-src.tar.gz';
+const dist = `${links.dist}<version>/`;
+const steps = {
+  keys: [`curl -O ${links.dist}KEYS`, 'gpg --import KEYS'],
+  signature: [
+    `curl -O ${dist}${archive}`,
+    `curl -O ${dist}${archive}.asc`,
+    `gpg --verify ${archive}.asc ${archive}`,
+  ],
+  checksum: [`curl -O ${dist}${archive}.sha512`, `shasum -a 512 -c ${archive}.sha512`],
+};
+const sections = [
+  ['apache-releases', d.releases.h2],
+  ['verify', d.verify.h2],
+  ['development', d.development.h2],
+] as const;
+---
+
+<Site copy={copy} page="downloads" title={`${d.title} · ${copy.siteName}`} description={d.lede}>
+  <div class="doc">
+    <main>
+      <h1>{d.title}</h1>
+      <p class="sup">{d.lede}</p>
+
+      <div class="status">
+        <h3>{d.status.h3}</h3>
+        <a class="row" href="#apache-releases"><b>{d.status.release.label}</b><span>{d.status.release.value}</span><small class="warn">{d.status.release.note}</small></a>
+      </div>
+
+      <section id="apache-releases">
+        <h2>{d.releases.h2}</h2>
+        <span class="note">{d.releases.note}</span>
+        <p>{d.releases.p}</p>
+        <p>{d.releases.distNote} <code>{links.dist}</code></p>
+      </section>
+
+      <hr class="div" />
+
+      <section id="verify">
+        <h2>{d.verify.h2}</h2>
+        <p>{d.verify.p}</p>
+        {(['keys', 'signature', 'checksum'] as const).map((step) => (
+          <>
+            <b class="step">{d.verify[step]}</b>
+            <div class="code"><pre><code>{steps[step].join('\n')}</code></pre><button class="copy" type="button" aria-label={`${d.copy}: ${d.verify[step]}`} data-label={d.verify[step]} data-copy={d.copy} data-copied={d.copied}>{d.copy}</button></div>
+          </>
+        ))}
+      </section>
+
+      <hr class="div" />
+
+      <section id="development">
+        <h2>{d.development.h2}</h2>
+        <p>{d.development.p}</p>
+        <p><a href={localized.contributing[l]}>{d.development.contribute}</a> · <a href={links.devList}>{d.development.discuss}</a></p>
+      </section>
+    </main>
+
+    <aside class="outline" aria-label={d.onThisPage}>
+      <div class="lab">{d.onThisPage}</div>
+      {sections.map(([id, label]) => <a href={`#${id}`} data-for={id}>{label}</a>)}
+    </aside>
+  </div>
+
+  <script is:inline>
+    // Copy buttons and the outline's current-section marker.
+    (() => {
+      for (const button of document.querySelectorAll('.copy')) {
+        // Name each button after its step so screen readers can distinguish them.
+        const show = (text) => {
+          button.textContent = text;
+          button.setAttribute('aria-label', `${text}: ${button.dataset.label}`);
+        };
+        button.addEventListener('click', async () => {
+          const code = button.parentElement?.querySelector('code')?.textContent ?? '';
+          try {
+            await navigator.clipboard.writeText(code);
+            show(button.dataset.copied);
+            setTimeout(() => show(button.dataset.copy), 1500);
+          } catch {}
+        });
+      }
+      const marks = new Map(
+        [...document.querySelectorAll('.outline a')].map((a) => [a.dataset.for, a]),
+      );
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            for (const a of marks.values()) a.removeAttribute('aria-current');
+            marks.get(entry.target.id)?.setAttribute('aria-current', 'true');
+          }
+        },
+        { rootMargin: '-20% 0px -60% 0px' },
+      );
+      for (const id of marks.keys()) {
+        const target = document.getElementById(id);
+        if (target) observer.observe(target);
+      }
+    })();
+  </script>
+</Site>
