@@ -262,3 +262,4 @@ Apache Maka, Maka, Apache, the Apache feather, and the Apache Maka project logo 
 
 > [!IMPORTANT]
 > Maka is under active development. Data formats, CLI commands, and experimental capabilities may still change...
+> ---
